@@ -9,13 +9,19 @@ description: PAI (Personal AI Infrastructure) - Your AI system core. AUTO-LOADS 
 
 ## Workflow Routing
 
-**When executing a workflow, call the notification script via Bash:**
+**When executing a workflow, do BOTH of these:**
 
-```bash
-${PAI_DIR}/tools/skill-workflow-notification WorkflowName CORE
-```
+1. **Call the notification script** (for observability tracking):
+   ```bash
+   ~/.claude/Tools/SkillWorkflowNotification WORKFLOWNAME SKILLNAME
+   ```
 
-This emits the notification AND enables dashboards to detect workflow activations.
+2. **Output the text notification** (for user visibility):
+   ```
+   Running the **WorkflowName** workflow from the **SKILLNAME** skill...
+   ```
+
+This ensures workflows appear in the observability dashboard AND the user sees the announcement.
 
 | Action | Trigger | Behavior |
 |--------|---------|----------|
@@ -23,6 +29,7 @@ This emits the notification AND enables dashboards to detect workflow activation
 | **Git** | "push changes", "commit to repo" | Run git workflow |
 | **Delegation** | "use parallel interns", "parallelize" | Deploy parallel agents |
 | **Merge** | "merge conflict", "complex decision" | Use /plan mode |
+| **Verification** | "verify this", "before completing", "check my work" | Run verification checklist |
 
 ## Examples
 
@@ -282,6 +289,73 @@ ls -lt ${PAI_DIR}/History/sessions/2025-11/ | head -20
 | Session summaries | `history/sessions/YYYY-MM/` |
 | Problem-solving narratives | `history/learnings/YYYY-MM/` |
 | Research & investigations | `history/research/YYYY-MM/` |
+
+---
+
+## Verification Before Completion (Quality Gate)
+
+**CRITICAL: Run this checklist before claiming ANY significant work is complete.**
+
+### When to Verify
+
+- After implementing a feature
+- Before creating a PR
+- After fixing a bug
+- Before delivering research results
+- After any multi-step task
+
+### Verification Checklist
+
+**1. Code Changes Verified**
+- [ ] All modified files saved
+- [ ] No syntax errors or linting issues
+- [ ] Tests pass (run `bun test` or equivalent)
+- [ ] Build succeeds (if applicable)
+
+**2. Behavior Verified**
+- [ ] Feature works as intended (manually tested)
+- [ ] Edge cases handled
+- [ ] Error states produce helpful messages
+- [ ] No regressions in existing functionality
+
+**3. Clean Up Complete**
+- [ ] Debug code removed (console.log, debugger, etc.)
+- [ ] No commented-out code left behind
+- [ ] Temporary files in Scratchpad cleaned up
+- [ ] No hardcoded test values
+
+**4. Documentation Updated**
+- [ ] README updated (if public-facing changes)
+- [ ] API changes documented
+- [ ] Complex logic has comments
+
+**5. Security Check**
+- [ ] No secrets/API keys in code
+- [ ] No sensitive data in logs
+- [ ] Input validation present
+- [ ] No obvious vulnerabilities
+
+### Quick Verification Command
+
+```bash
+# Run all checks at once
+echo "=== VERIFICATION ===" && \
+git status && \
+echo "---" && \
+bun test 2>&1 | tail -5 && \
+echo "---" && \
+grep -r "console.log\|debugger\|TODO\|FIXME" --include="*.ts" --include="*.tsx" . 2>/dev/null | head -10
+```
+
+### Verification Failure Protocol
+
+If ANY check fails:
+1. **STOP** - Don't claim completion
+2. **FIX** - Address the failing check
+3. **RE-VERIFY** - Run checklist again
+4. **THEN COMPLETE** - Only after all checks pass
+
+**Never skip verification to save time. Fixing issues after "completion" costs more than doing it right.**
 
 ---
 
