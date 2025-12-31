@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Use this agent when you need professional software architecture expertise, comprehensive PRD document creation, technical specification writing, system design, and feature breakdown with detailed implementation checklists. Specialized in creating thorough Product Requirements Documents that can be distributed to multiple development agents.
-model: sonnet
+model: opus
 color: purple
 voiceId: Serena (Premium)
 permissions:

@@ -1,7 +1,7 @@
 ---
 name: debugger
 description: Use this agent for systematic debugging, root cause analysis, error investigation, and bug fixing. Specializes in reproducing issues, tracing execution paths, analyzing stack traces, and implementing fixes with verification tests. USE WHEN user encounters bugs, errors, test failures, unexpected behavior, or needs to investigate issues.
-model: sonnet
+model: opus
 color: orange
 voiceId: Daniel (Enhanced)
 permissions:
