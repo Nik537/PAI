@@ -29,6 +29,12 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { PAI_DIR, SKILLS_DIR } from './lib/pai-paths';
 
+// Hook configuration - runs only once per session
+export const config = {
+  once: true,
+  event: "SessionStart"
+};
+
 async function main() {
   try {
     // Check if this is a subagent session - if so, exit silently

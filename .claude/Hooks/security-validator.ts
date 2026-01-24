@@ -37,6 +37,10 @@ const INSTRUCTION_OVERRIDE_PATTERNS: RegExp[] = [
 
 // Example: Catastrophic Deletion Patterns (BLOCK - filesystem destruction)
 const CATASTROPHIC_DELETION_PATTERNS: RegExp[] = [
+  // Root directory deletion - ALWAYS block
+  /\brm\s+(-[rfivd]+\s+)*\/\s*$/,                   // rm -rf /
+  /\brm\s+(-[rfivd]+\s+)*\/\*\s*$/,                 // rm -rf /*
+
   // Trailing tilde bypass
   /\s+~\/?(\s*$|\s+)/,                              // Space then ~/ at end
   /\brm\s+(-[rfivd]+\s+)*\S+\s+~\/?/,               // rm something ~/
@@ -59,6 +63,74 @@ const DANGEROUS_GIT_PATTERNS: RegExp[] = [
   /\bgit\s+push\s+.*(-f\b|--force)/i,               // git push --force
   /\bgit\s+reset\s+--hard/i,                        // git reset --hard
   // Add your own git safety patterns here
+];
+
+// ============================================================================
+// WARNING PATTERNS - additionalContext (allow with warnings)
+// ============================================================================
+
+// Destructive commands that should WARN (not block)
+const DESTRUCTIVE_WARNING_PATTERNS: { pattern: RegExp; message: string }[] = [
+  {
+    pattern: /\brm\s+(-[rfivd]+\s+)*(\*|\.\.)/,
+    message: "⚠️ DESTRUCTIVE COMMAND: Verify target path before execution."
+  },
+  {
+    pattern: /\brm\s+(-[rfivd]+\s+)+/,
+    message: "⚠️ Recursive delete detected: Double-check the target path."
+  },
+];
+
+// Force push warnings
+const FORCE_PUSH_WARNING_PATTERNS: { pattern: RegExp; message: string }[] = [
+  {
+    pattern: /\bgit\s+push\s+.*(-f\b|--force)/i,
+    message: "⚠️ Force push detected: Ensure you're not overwriting shared branches."
+  },
+  {
+    pattern: /\bgit\s+push\s+--force-with-lease/i,
+    message: "💡 force-with-lease is safer than --force, but still verify the target branch."
+  },
+];
+
+// Package manager preferences
+const PACKAGE_MANAGER_PATTERNS: { pattern: RegExp; message: string }[] = [
+  {
+    pattern: /\bnpm\s+(install|i|add|ci)\b/,
+    message: "💡 Reminder: PAI prefers 'bun install' for JS/TS projects."
+  },
+  {
+    pattern: /\byarn\s+(install|add)\b/,
+    message: "💡 Reminder: PAI prefers 'bun install' for JS/TS projects."
+  },
+  {
+    pattern: /\bpnpm\s+(install|i|add)\b/,
+    message: "💡 Reminder: PAI prefers 'bun install' for JS/TS projects."
+  },
+  {
+    pattern: /\bpip\s+install\b/,
+    message: "💡 Reminder: PAI prefers 'uv pip install' for Python projects."
+  },
+];
+
+// Git repository safety reminders
+const GIT_SAFETY_PATTERNS: { pattern: RegExp; message: string }[] = [
+  {
+    pattern: /\bgit\s+push\b/,
+    message: "🔒 Security: Run 'git remote -v' to verify repository before pushing."
+  },
+  {
+    pattern: /\bgit\s+clone\b/,
+    message: "🔒 Verify the repository URL is from a trusted source."
+  },
+];
+
+// All warning pattern groups
+const ALL_WARNING_PATTERN_GROUPS = [
+  DESTRUCTIVE_WARNING_PATTERNS,
+  FORCE_PUSH_WARNING_PATTERNS,
+  PACKAGE_MANAGER_PATTERNS,
+  GIT_SAFETY_PATTERNS,
 ];
 
 // Combined patterns for fast iteration
@@ -98,6 +170,34 @@ interface DetectionResult {
   requiresConfirmation?: boolean;
   category?: string;
   pattern?: string;
+}
+
+interface WarningResult {
+  hasWarnings: boolean;
+  messages: string[];
+}
+
+/**
+ * Collect all applicable warnings for a command
+ * Returns warnings as additionalContext (allows command but provides guidance)
+ */
+function collectWarnings(content: string): WarningResult {
+  const messages: string[] = [];
+  const seenMessages = new Set<string>();
+
+  for (const patternGroup of ALL_WARNING_PATTERN_GROUPS) {
+    for (const { pattern, message } of patternGroup) {
+      if (pattern.test(content) && !seenMessages.has(message)) {
+        messages.push(message);
+        seenMessages.add(message);
+      }
+    }
+  }
+
+  return {
+    hasWarnings: messages.length > 0,
+    messages,
+  };
 }
 
 function detectAttack(content: string): DetectionResult {
@@ -178,42 +278,43 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Check all patterns
-  const result = detectAttack(command);
+  // Check for hard blocks first (truly dangerous operations)
+  const attackResult = detectAttack(command);
 
-  if (result.blocked) {
-    // Log and block
+  if (attackResult.blocked) {
+    // Log and block - these are truly dangerous operations
     logSecurityEvent({
       type: 'attack_blocked',
-      category: result.category,
-      pattern: result.pattern,
+      category: attackResult.category,
+      pattern: attackResult.pattern,
       command: command.slice(0, 200), // Truncate for log
       session_id: input.session_id,
     });
 
     const output: HookOutput = {
       permissionDecision: 'deny',
-      additionalContext: `🚨 SECURITY: Blocked ${result.category} pattern`,
-      feedback: `This command matched a security pattern (${result.category}). If this is legitimate, please rephrase the command.`,
+      additionalContext: `🚨 SECURITY: Blocked ${attackResult.category} pattern`,
+      feedback: `This command matched a security pattern (${attackResult.category}). If this is legitimate, please rephrase the command.`,
     };
 
     console.log(JSON.stringify(output));
     process.exit(2); // Exit 2 = blocking error
   }
 
-  if (result.requiresConfirmation) {
+  // Check for confirmation-required patterns (dangerous git operations)
+  if (attackResult.requiresConfirmation) {
     // Log warning and require confirmation
     logSecurityEvent({
       type: 'confirmation_required',
-      category: result.category,
-      pattern: result.pattern,
+      category: attackResult.category,
+      pattern: attackResult.pattern,
       command: command.slice(0, 200),
       session_id: input.session_id,
     });
 
     const output: HookOutput = {
       permissionDecision: 'deny',
-      additionalContext: `⚠️ DANGEROUS: ${result.category} operation requires confirmation`,
+      additionalContext: `⚠️ DANGEROUS: ${attackResult.category} operation requires confirmation`,
       feedback: `This is a dangerous operation (${command.slice(0, 50)}...). This can cause data loss. If you're sure, explicitly confirm this command.`,
     };
 
@@ -221,7 +322,20 @@ async function main(): Promise<void> {
     process.exit(2); // Exit 2 = requires user confirmation
   }
 
-  // Allow - no logging, immediate exit
+  // Collect warnings for additionalContext (allow with guidance)
+  const warnings = collectWarnings(command);
+
+  if (warnings.hasWarnings) {
+    // Allow the command but provide helpful context
+    const output: HookOutput = {
+      permissionDecision: 'allow',
+      additionalContext: warnings.messages.join(' '),
+    };
+    console.log(JSON.stringify(output));
+    return;
+  }
+
+  // Allow - no warnings, immediate exit
   console.log(JSON.stringify({ permissionDecision: 'allow' }));
 }
 

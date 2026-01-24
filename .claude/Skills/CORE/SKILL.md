@@ -31,6 +31,31 @@ This ensures workflows appear in the observability dashboard AND the user sees t
 | **Merge** | "merge conflict", "complex decision" | Use /plan mode |
 | **Verification** | "verify this", "before completing", "check my work" | Run verification checklist |
 
+## Git Workflow Permissions
+
+**Allowed (pre-approved with wildcards):**
+```yaml
+allowed-tools:
+  - Bash(git status*)
+  - Bash(git diff*)
+  - Bash(git log*)
+  - Bash(git add *)
+  - Bash(git commit -m*)
+  - Bash(git commit -F*)
+  - Bash(git push origin *)
+  - Bash(git fetch*)
+  - Bash(git pull*)
+  - Bash(git branch*)
+  - Bash(git checkout -b*)
+```
+
+**Blocked (require explicit approval):**
+- `git push --force` (or `git push -f`)
+- `git reset --hard`
+- `git clean -f`
+- `git push * main --force`
+- Any destructive operations
+
 ## Examples
 
 **Example 1: Push PAI updates to GitHub**

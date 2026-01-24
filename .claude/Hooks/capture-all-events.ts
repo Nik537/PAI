@@ -14,10 +14,16 @@ import { enrichEventWithAgentMetadata, isAgentSpawningCall } from './lib/metadat
 interface HookEvent {
   source_app: string;
   session_id: string;
+  claude_session_id: string; // CLAUDE_SESSION_ID from environment
   hook_event_type: string;
   payload: Record<string, any>;
   timestamp: number;
   timestamp_pst: string;
+}
+
+// Get session ID from environment variable (CLAUDE_SESSION_ID)
+function getClaudeSessionId(): string {
+  return process.env.CLAUDE_SESSION_ID || 'unknown';
 }
 
 // Get PST timestamp
@@ -35,8 +41,8 @@ function getPSTTimestamp(): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} PST`;
 }
 
-// Get current events file path
-function getEventsFilePath(): string {
+// Get current events file path with optional session ID
+function getEventsFilePath(includeSessionId: boolean = false): string {
   const now = new Date();
   const pstDate = new Date(now.toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles' }));
   const year = pstDate.getFullYear();
@@ -48,6 +54,13 @@ function getEventsFilePath(): string {
   // Ensure directory exists
   if (!existsSync(monthDir)) {
     mkdirSync(monthDir, { recursive: true });
+  }
+
+  // Include session ID in filename for better tracking and correlation
+  if (includeSessionId) {
+    const sessionId = getClaudeSessionId();
+    const shortSessionId = sessionId.substring(0, 8); // First 8 chars
+    return join(monthDir, `${year}-${month}-${day}_${shortSessionId}_all-events.jsonl`);
   }
 
   return join(monthDir, `${year}-${month}-${day}_all-events.jsonl`);
@@ -138,10 +151,21 @@ async function main() {
       }
     }
 
+    // Get CLAUDE_SESSION_ID from environment for better tracking
+    const claudeSessionId = getClaudeSessionId();
+
+    // Create base event object with session metadata
+    const sessionMetadata = {
+      session_id: claudeSessionId,
+      payload_session_id: hookData.session_id || 'main',
+      timestamp: new Date().toISOString()
+    };
+
     // Create base event object
     let event: HookEvent = {
       source_app: agentName,
-      session_id: hookData.session_id || 'main',
+      session_id: sessionMetadata.payload_session_id,
+      claude_session_id: sessionMetadata.session_id,
       hook_event_type: eventType,
       payload: hookData,
       timestamp: Date.now(),

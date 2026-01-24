@@ -17,6 +17,11 @@ interface SessionData {
   [key: string]: any;
 }
 
+// Get session ID from environment variable or fallback to conversation_id
+function getSessionId(data: SessionData): string {
+  return process.env.CLAUDE_SESSION_ID || data.conversation_id || 'unknown';
+}
+
 async function main() {
   try {
     // Read input from stdin
@@ -26,6 +31,9 @@ async function main() {
     }
 
     const data: SessionData = JSON.parse(input);
+
+    // Get session ID from environment or data
+    const sessionId = getSessionId(data);
 
     // Generate timestamp for filename
     const now = new Date();
@@ -37,10 +45,11 @@ async function main() {
     const yearMonth = timestamp.substring(0, 7); // YYYY-MM
 
     // Try to extract session info from raw outputs
-    const sessionInfo = await analyzeSession(data.conversation_id, yearMonth);
+    const sessionInfo = await analyzeSession(sessionId, yearMonth);
 
-    // Generate filename
-    const filename = `${timestamp}_SESSION_${sessionInfo.focus}.md`;
+    // Generate filename with session ID for better tracking
+    const shortSessionId = sessionId.substring(0, 8); // First 8 chars of session ID
+    const filename = `${timestamp}_${shortSessionId}_SESSION_${sessionInfo.focus}.md`;
 
     // Ensure directory exists
     const sessionDir = join(HISTORY_DIR, 'sessions', yearMonth);
@@ -48,8 +57,8 @@ async function main() {
       mkdirSync(sessionDir, { recursive: true });
     }
 
-    // Generate session document
-    const sessionDoc = formatSessionDocument(timestamp, data, sessionInfo);
+    // Generate session document with session ID
+    const sessionDoc = formatSessionDocument(timestamp, data, sessionInfo, sessionId);
 
     // Write session file
     writeFileSync(join(sessionDir, filename), sessionDoc);
@@ -117,23 +126,35 @@ async function analyzeSession(conversationId: string, yearMonth: string): Promis
   };
 }
 
-function formatSessionDocument(timestamp: string, data: SessionData, info: any): string {
+function formatSessionDocument(timestamp: string, data: SessionData, info: any, sessionId: string): string {
   const date = timestamp.substring(0, 10); // YYYY-MM-DD
   const time = timestamp.substring(11).replace(/-/g, ':'); // HH:MM:SS
 
+  // Session metadata with CLAUDE_SESSION_ID for better tracking
+  const sessionMetadata = {
+    session_id: sessionId,
+    conversation_id: data.conversation_id,
+    timestamp: new Date().toISOString(),
+    duration_minutes: info.duration,
+    executor: 'kai',
+    capture_type: 'SESSION'
+  };
+
   return `---
 capture_type: SESSION
-timestamp: ${new Date().toISOString()}
-session_id: ${data.conversation_id}
-duration_minutes: ${info.duration}
-executor: kai
+timestamp: ${sessionMetadata.timestamp}
+session_id: ${sessionMetadata.session_id}
+conversation_id: ${sessionMetadata.conversation_id}
+duration_minutes: ${sessionMetadata.duration_minutes}
+executor: ${sessionMetadata.executor}
 ---
 
 # Session: ${info.focus}
 
 **Date:** ${date}
 **Time:** ${time}
-**Session ID:** ${data.conversation_id}
+**Session ID:** ${sessionId}
+**Conversation ID:** ${data.conversation_id}
 
 ---
 

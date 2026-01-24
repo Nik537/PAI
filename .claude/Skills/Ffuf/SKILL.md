@@ -2,6 +2,7 @@
 name: ffuf-web-fuzzing
 description: Expert guidance for ffuf web fuzzing during penetration testing, including authenticated fuzzing with raw requests, auto-calibration, and result analysis
 contributor: Joseph Thacker (@rez0)
+agent: pentester
 ---
 
 # FFUF (Fuzz Faster U Fool) Skill

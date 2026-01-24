@@ -1,6 +1,7 @@
 ---
 name: alex-hormozi-pitch
 description: Create irresistible offers and pitches using Alex Hormozi's methodology from $100M Offers. Guides through value equation, guarantee frameworks, pricing psychology, and creating offers "too good not to take" for any product or service.
+agent: general-purpose
 ---
 
 # Alex Hormozi Pitch Skill

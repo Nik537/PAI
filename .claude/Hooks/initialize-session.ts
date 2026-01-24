@@ -26,6 +26,12 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { PAI_DIR } from './lib/pai-paths';
 
+// Hook configuration - runs only once per session
+export const config = {
+  once: true,
+  event: "SessionStart"
+};
+
 // Debounce duration in milliseconds (prevents duplicate SessionStart events)
 const DEBOUNCE_MS = 2000;
 const LOCKFILE = join(tmpdir(), 'pai-session-start.lock');

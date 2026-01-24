@@ -1,6 +1,7 @@
 ---
 name: TDD
 description: Test-Driven Development methodology and workflows. Enforces the red-green-refactor cycle for reliable, well-tested code. USE WHEN user says 'write tests first', 'TDD', 'test driven', 'red green refactor', OR user wants to implement a feature with tests, OR user mentions testing before implementation.
+agent: engineer
 ---
 
 # TDD - Test-Driven Development

@@ -1,6 +1,7 @@
 ---
 name: Createskill
 description: MANDATORY skill creation framework for ALL skill creation requests. USE WHEN user wants to create, validate, update, or canonicalize a skill, OR user mentions skill creation, skill development, new skill, build skill, OR user references skill compliance, skill structure, or skill architecture.
+agent: architect
 ---
 
 # Createskill

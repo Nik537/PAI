@@ -1,8 +1,22 @@
 #!/usr/bin/env bun
 
-import { readFileSync } from 'fs';
+import { readFileSync, appendFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+
+// Get session ID from environment variable
+function getSessionId(): string {
+  return process.env.CLAUDE_SESSION_ID || 'unknown';
+}
+
+// Session metadata for tracking
+interface SessionMetadata {
+  session_id: string;
+  timestamp: string;
+  event_type: string;
+  voice_message?: string;
+  tab_title?: string;
+}
 
 /**
  * Generate 4-word tab title summarizing what was done
@@ -251,9 +265,13 @@ function generateIntelligentResponse(userQuery: string, assistantResponse: strin
 }
 
 async function main() {
+  // Get session ID for tracking
+  const sessionId = getSessionId();
+
   // Log that hook was triggered
   const timestamp = new Date().toISOString();
   console.error(`\n🎬 STOP-HOOK TRIGGERED AT ${timestamp}`);
+  console.error(`📍 Session ID: ${sessionId}`);
 
   // Get input
   let input = '';
@@ -497,7 +515,7 @@ async function main() {
     // Align voice payload with initialize-pai-session.ts (prefer voice_id)
     const voiceId = process.env.DA_VOICE_ID || 'default-voice-id';
     const priority = 'low';
-    // Send to voice server
+    // Send to voice server with session ID for tracking
     await fetch('http://localhost:8888/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -507,6 +525,7 @@ async function main() {
         voice_enabled: true,
         priority,
         voice_id: voiceId,
+        session_id: sessionId,
         // keep legacy fields for compatibility with voice server configs that use names/rates
         voice_name: voiceConfig.voice_name,
         rate: voiceConfig.rate_wpm
@@ -514,6 +533,16 @@ async function main() {
     }).catch(() => {});
     console.error(`🔊 Voice notification sent: "${message}" with voice: ${voiceConfig.voice_name} at ${voiceConfig.rate_wpm} wpm (${voiceConfig.rate_multiplier}x)`);
   }
+
+  // Log session metadata for history tracking
+  const sessionMetadata: SessionMetadata = {
+    session_id: sessionId,
+    timestamp: new Date().toISOString(),
+    event_type: 'stop',
+    voice_message: message || undefined,
+    tab_title: tabTitle || undefined
+  };
+  console.error(`📊 Session metadata: ${JSON.stringify(sessionMetadata)}`);
 
   // ALWAYS set tab title to override any previous titles (like "dynamic requirements")
   // Generate a meaningful title even if we don't have a voice message
